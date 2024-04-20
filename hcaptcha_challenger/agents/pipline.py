@@ -14,26 +14,22 @@ import cv2
 from PIL import Image
 from loguru import logger
 
-from hcaptcha_challenger.components.common import (
-    match_model,
-    download_challenge_images,
-    rank_models,
-    match_datalake,
-)
-from hcaptcha_challenger.components.cv_toolkit import (
-    annotate_objects,
-    find_unique_object,
-    find_unique_color,
-)
-from hcaptcha_challenger.components.middleware import Status, QuestionResp, RequestType, Answers
-from hcaptcha_challenger.components.prompt_handler import handle
-from hcaptcha_challenger.components.zero_shot_image_classifier import (
-    ZeroShotImageClassifier,
-    register_pipline,
-)
+from hcaptcha_challenger.models import Status, QuestionResp, RequestType, Answers
 from hcaptcha_challenger.onnx.modelhub import ModelHub, DataLake
 from hcaptcha_challenger.onnx.resnet import ResNetControl
 from hcaptcha_challenger.onnx.yolo import YOLOv8, is_matched_ash_of_war, YOLOv8Seg
+from hcaptcha_challenger.tools import (
+    match_datalake,
+    match_model,
+    rank_models,
+    download_challenge_images,
+    find_unique_color,
+    annotate_objects,
+    find_unique_object,
+    handle,
+    ZeroShotImageClassifier,
+    register_pipline,
+)
 
 
 @dataclass

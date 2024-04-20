@@ -5,13 +5,16 @@
 # Description:
 from __future__ import annotations
 
+import base64
+import shutil
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
+from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, UUID4, AnyHttpUrl, Base64Bytes
 
-from hcaptcha_challenger.components.prompt_handler import label_cleaning
+from hcaptcha_challenger.constant import BAD_CODE, INV
 
 
 class Status(str, Enum):
@@ -21,6 +24,46 @@ class Status(str, Enum):
     CHALLENGE_RETRY = "retry"
     # <backcall> (New Challenge) Types of challenges not yet scheduled
     CHALLENGE_BACKCALL = "backcall"
+    # <timeout> Failed to pass the challenge within the specified time frame
+    CHALLENGE_EXECUTION_TIMEOUT = "challenge_execution_timeout"
+    CHALLENGE_RESPONSE_TIMEOUT = "challenge_response_timeout"
+
+
+class Collectible(BaseModel):
+    point: UUID4 | AnyHttpUrl = Field(..., description="sitelink or sitekey")
+
+    @field_validator("point")
+    def validate_point(cls, v: str):
+        def is_valid_uuid4(string):
+            try:
+                uuid_obj = UUID(string)
+            except ValueError:
+                return False
+            return uuid_obj.version == 4
+
+        _sitekey = "c86d730b-300a-444c-a8c5-5312e7a93628"
+        _sitelink = "https://accounts.hcaptcha.com/demo"
+
+        if not isinstance(v, str):
+            v = f"{_sitelink}?sitekey={_sitekey}"
+        elif is_valid_uuid4(v):
+            v = f"{_sitelink}?sitekey={v}"
+        elif not v.startswith(_sitelink):
+            v = f"{_sitelink}?sitekey={_sitekey}"
+
+        return v
+
+    @property
+    def fixed_sitelink(self) -> str:
+        return self.point
+
+
+CollectibleType = Union[UUID4, AnyHttpUrl, str]
+
+
+class ToolExecution(str, Enum):
+    CHALLENGE = "challenge"
+    COLLECT = "collect"
 
 
 class ImageTask(BaseModel):
@@ -89,13 +132,16 @@ class QuestionResp(BaseModel):
     def cache(self, tmp_dir: Path):
         shape_type = self.request_config.get("shape_type", "")
 
-        requester_question = label_cleaning(self.requester_question.get("en", ""))
+        # label cleaning
+        requester_question = self.requester_question.get("en", "")
+        for c in BAD_CODE:
+            requester_question = requester_question.replace(c, BAD_CODE[c])
+
         answer_keys = list(self.requester_restricted_answer_set.keys())
         ak = f".{answer_keys[0]}" if len(answer_keys) > 0 else ""
         fn = f"{self.request_type}.{shape_type}.{requester_question}{ak}.json"
 
-        inv = {"\\", "/", ":", "*", "?", "<", ">", "|"}
-        for c in inv:
+        for c in INV:
             fn = fn.replace(c, "")
 
         if tmp_dir and tmp_dir.exists():
@@ -142,3 +188,43 @@ class Answers(BaseModel):
     motionData: str = ""
     n: str = ""
     c: str = ""
+
+
+class ChallengeImage(BaseModel):
+    datapoint_uri: str = Field(default="", description="图片的临时访问链接")
+
+    filename: str = Field(default="challenge-image.jpeg", description="HASH 后的文件名，带有后缀")
+
+    body: bytes = Field(default=b"", description="图片缓存字节")
+
+    runtime_fp: Path = Field(
+        default_factory=Path, description="图片的临时缓存路径，fp = typed_dir / filename"
+    )
+
+    def save(self, typed_dir: Path) -> Path:
+        fp = typed_dir / self.filename
+        fp.write_bytes(self.body)
+        return fp
+
+    def into_base64bytes(self) -> str:
+        return base64.b64encode(self.body).decode()
+
+    def move_to(self, dst: Path):
+        if dst.is_dir():
+            dst = dst / self.filename
+        return shutil.move(self.runtime_fp, dst=dst)
+
+
+class SelfSupervisedPayload(BaseModel):
+    """hCaptcha payload of the image_label_binary challenge"""
+
+    prompt: str = Field(..., description="challenge prompt")
+    challenge_images: List[Base64Bytes] = Field(default_factory=list)
+    positive_labels: List[str] | None = Field(default_factory=list, alias="positive")
+    negative_labels: List[str] | None = Field(default_factory=list, alias="negative")
+
+
+class SelfSupervisedResponse(BaseModel):
+    """The binary classification result of the image, in the same order as the challenge_images."""
+
+    results: List[bool] = Field(default_factory=list)
