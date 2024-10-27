@@ -23,7 +23,7 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: |
-          pip install -U hcaptcha-challenger[sentinel]
+          pip install -U hcaptcha-challenger[sentinel]==0.9.5
           playwright install chromium
           playwright install-deps chromium
       - name: Startup sentinel
