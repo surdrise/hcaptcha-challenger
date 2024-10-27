@@ -10,8 +10,6 @@ on:
 
 jobs:
   check_new_challenge:
-    env:
-      GITHUB_TOKEN: ${{ secrets.SENTINEL_ACCESS_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout environment
