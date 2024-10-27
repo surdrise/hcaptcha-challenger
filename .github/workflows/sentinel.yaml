@@ -11,6 +11,8 @@ on:
 jobs:
   check_new_challenge:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout environment
         uses: actions/checkout@v3
