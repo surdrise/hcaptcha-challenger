@@ -143,7 +143,7 @@ class GravitasState:
 
 def upload_thumbnail(canvas_path: Path, mixed_label: str) -> str | None:
     auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
-    asset_repo = Github(auth=auth).get_repo("QIN2DIM/cdn-relay")
+    asset_repo = Github(auth=auth).get_repo("surdrise/cdn-relay")
 
     asset_path = f"challenge-thumbnail/{time.time()}.{mixed_label}.png"
     branch = "main"
@@ -186,7 +186,7 @@ def create_comment(asset: GitReleaseAsset, gravitas: Gravitas, gs: GravitasState
 
 def load_gravitas_from_issues() -> List[Gravitas]:
     auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
-    issue_repo = Github(auth=auth).get_repo("QIN2DIM/hcaptcha-challenger")
+    issue_repo = Github(auth=auth).get_repo("surdrise/hcaptcha-challenger")
 
     tasks = []
     for issue in issue_repo.get_issues(
